@@ -62,7 +62,7 @@ func (n *Node) ConnectResponse(L int, j Edge) {
 			n.findCount++
 		}
 		}else if j.SE == Basic {
-			//place received message in the end of Q
+			//place received message in the end of Q****
 
 		} else {
 			j.Initiate(n.LN+1, j.Weight, Find)
@@ -80,7 +80,7 @@ func (n *Node) InitiateResponse(L, F int, S string, j Edge) {
 	n.bestEdge = nil//Edge{0, 0, ""}
 	n.bestWt = Infinity
 
-	for i := range n.adjacencyList{
+	for _, i := range n.adjacencyList{
 		if i!= j && i.SE == Branch{
 			Edge(i).Initiate(L, F, S)
 			if S==Find{
@@ -96,6 +96,20 @@ func (n *Node) InitiateResponse(L, F int, S string, j Edge) {
 
 //Test picks the minimum Basic Edge and send test message
 func (n *Node) Test() {
+	var report := true
+	for _, e := n.adjacencyList{
+		if Edge(e).SE == Basic{
+			n.testEdge = e
+			n.testEdge.Test(n.LN, n.FN)
+			report = false
+			break
+		}
+	}
+	if report(
+		n.testEdge = nil
+		n.Report()
+	)
+
 	// if there are adjacent Edges in state Basic{
 	// 	n.testEdge = min weight adjacent edge with state Basic
 	// 	send Test(n.LN, n.FN) on n.testEdge
@@ -108,22 +122,47 @@ func (n *Node) Test() {
 
 //TestResponse responds to Test message
 func (n *Node) TestResponse(l, f int, j Edge){
-
+	if n.SN == Sleeping{
+		n.Wakeup()
+	}
+	if l> n.LN {
+		//Put message end of Q ***************
+	}else if f != n.FN{
+		j.Accept()
+	}else{
+		if j.SE = Basic{
+			//j.SE = Rejected ****
+		}
+		if n.testEdge != j{
+			j.Reject()
+		}else{
+			n.Test()
+		}
+	}
 }
 
-
+//AcceptResponse is a response to Accept message
 func (n *Node) AcceptResponse(j Edge){
-
+	n.testEdge = nil
+	if j.Weight < n.bestWt{
+		n.bestEdge = j
+		n.bestWt = j.Weight
+	}
+	n.Report()
 }
 
 
 
 func (n *Node) RejectResponse(j Edge){
-
+	if j.SE = Basic{
+		//j.SE  = Rejected ******
+	}
+	n.Test()
 }
 
-func (n *Node) Report(){
 
+func (n *Node) Report(){
+	
 }
 
 func (n *Node) ReportResponse(w int, j Edge){
@@ -234,11 +273,11 @@ func processMessage(reqs chan *Message){
 
 		}
 	}
-
 }
 
-
-
+//The node will begin execution by creating a channel
+//where requests will be queued for processing.
+//Channels are thread-safe so multiple go routines can access
 func main() {
 	requests = make(chan *Message, 10)
 
