@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"time"
 	//"github.com/parpat/ghsmst"
 )
 
@@ -98,7 +99,7 @@ func (n *Node) Test() {
 	report := true
 	for _, e := range *n.adjacencyList {
 		if e.SE == Basic {
-			*n.testEdge = e
+			n.testEdge = &e
 			n.testEdge.Test(n.LN, n.FN)
 			report = false
 			break
@@ -254,42 +255,56 @@ func GetHostInfo() (string, string) {
 
 func serveConn(c net.Conn, reqs chan *Message) {
 	defer c.Close()
-	var resp *Message
+	var resp Message
 	dec := gob.NewDecoder(c)
-	err := dec.Decode(resp)
+	err := dec.Decode(&resp)
 	if err != nil {
 		log.Print(err)
 	}
 
-	reqs <- resp
+	reqs <- &resp
 }
 
 func processMessage(reqs chan *Message) {
 	for m := range reqs {
+		fmt.Printf("MESSAGE TYPE: %v\n", m.Type)
 		j := ThisNode.findEdge(m.SourceID)
 		switch {
 		case m.Type == "Connect":
+			fmt.Println("ConnectResponse")
 			ThisNode.ConnectResponse(m.L, j)
 
 		case m.Type == "Initiate":
+			fmt.Println("InitiateResponse")
 			ThisNode.InitiateResponse(m.L, m.F, m.S, j)
 
 		case m.Type == "Test":
+			fmt.Println("TestResponse")
 			ThisNode.TestResponse(m.L, m.F, j)
 
 		case m.Type == "Reject":
+			fmt.Println("RejectResponse")
 			ThisNode.RejectResponse(j)
 
 		case m.Type == "Accept":
+			fmt.Println("AcceptResponse")
 			ThisNode.AcceptResponse(j)
 
 		case m.Type == "Report":
+			fmt.Println("ReportResponse")
 			ThisNode.ReportResponse(m.W, j)
 
 		case m.Type == "ChangeCore":
+			fmt.Println("ChangeCoreResponse")
 			ThisNode.ChangeCoreResponse()
 
 		}
+		if ThisNode.inBranch != nil {
+			log.Printf("STATUS: %v  INBRANCH: %v FCOUNT: %v\n", ThisNode.SN, ThisNode.inBranch.Weight, ThisNode.findCount)
+		} else {
+			log.Printf("STATUS: %v  FCOUNT: %v\n", ThisNode.SN, ThisNode.findCount)
+		}
+
 	}
 }
 
@@ -301,7 +316,7 @@ func main() {
 
 	//Initialize Server
 	notListening := make(chan bool)
-
+	//log.Printf("STATUS: %v  INBRANCH: %v FCOUNT: %v", ThisNode.SN, (*ThisNode.inBranch).Weight, ThisNode.findCount)
 	go func(nl chan bool) {
 		defer func() {
 			nl <- true
@@ -327,6 +342,7 @@ func main() {
 	go processMessage(requests)
 
 	if wakeup {
+		time.Sleep(time.Second * 4)
 		ThisNode.Wakeup()
 	}
 

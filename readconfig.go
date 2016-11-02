@@ -37,7 +37,7 @@ func GetEdgesFromFile(fname string, id int) (Edges, int) {
 			} else if d == id {
 				myedges = append(myedges, Edge{SE: "Basic", Weight: w, AdjNodeID: s})
 			}
-			fmt.Printf("My edge %v\n", myedges)
+			//fmt.Printf("My edge %v\n", myedges)
 		}
 	}
 

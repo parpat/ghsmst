@@ -103,6 +103,7 @@ func (e *Edge) send(m Message) {
 		if err != nil {
 			log.Fatal(err)
 		}
+		log.Printf("Sent: %v to %v\n", m.Type, e.AdjNodeID)
 
 	}
 }
