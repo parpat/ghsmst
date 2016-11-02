@@ -1,4 +1,4 @@
-package ghsmst
+package main
 
 import (
 	"encoding/gob"
@@ -55,7 +55,7 @@ func (e *Edge) Connect(l int) {
 
 //Initiate type message created and sent
 func (e *Edge) Initiate(l, f int, s string) {
-	m := Message{Type: "Initiate", L: l, F: f, SN: s, SourceID: ThisNode.ID}
+	m := Message{Type: "Initiate", L: l, F: f, S: s, SourceID: ThisNode.ID}
 	e.send(m)
 
 }
