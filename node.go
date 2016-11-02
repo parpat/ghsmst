@@ -26,30 +26,30 @@ const Infinity int = 9999
 type Node struct {
 	SN string //Node state
 	FN int    //Fragment ID
-	LN int    //
+	LN int    //Level
 
 	ID int
 
-	bestEdge      Edge
+	bestEdge      *Edge
 	bestWt        int
-	testEdge      Edge
-	inBranch      Edge
+	testEdge      *Edge
+	inBranch      *Edge
 	findCount     int
-	adjacencyList Edges
+	adjacencyList *Edges
 }
 
 //Wakeup initializes the node
 func (n *Node) Wakeup() {
-	n.adjacencyList[0].SE = Branch
+	(*n.adjacencyList)[0].SE = Branch
 	n.LN = 0
 	n.SN = Found
 	n.findCount = 0
 
-	n.adjacencyList[0].Connect(0)
+	(*n.adjacencyList)[0].Connect(0)
 }
 
 //ConnectResponse responds to the Connect message
-func (n *Node) ConnectResponse(L int, j Edge) {
+func (n *Node) ConnectResponse(L int, j *Edge) {
 	if n.SN == Sleeping {
 		n.Wakeup()
 	}
@@ -70,17 +70,17 @@ func (n *Node) ConnectResponse(L int, j Edge) {
 }
 
 //InitiateResponse responds to the Initiate message
-func (n *Node) InitiateResponse(L, F int, S string, j Edge) {
+func (n *Node) InitiateResponse(L, F int, S string, j *Edge) {
 	n.LN = L
 	n.FN = F
 	n.SN = S
 	n.inBranch = j
 
-	n.bestEdge = nil //Edge{0, 0, ""}
+	n.bestEdge = nil
 	n.bestWt = Infinity
 
-	for _, i := range n.adjacencyList {
-		if i != j && i.SE == Branch {
+	for _, i := range *n.adjacencyList {
+		if i != *j && i.SE == Branch {
 			i.Initiate(L, F, S)
 			if S == Find {
 				n.findCount++
@@ -96,9 +96,9 @@ func (n *Node) InitiateResponse(L, F int, S string, j Edge) {
 //Test picks the minimum Basic Edge and send test message
 func (n *Node) Test() {
 	report := true
-	for _, e := range n.adjacencyList {
-		if Edge(e).SE == Basic {
-			n.testEdge = e
+	for _, e := range *n.adjacencyList {
+		if e.SE == Basic {
+			*n.testEdge = e
 			n.testEdge.Test(n.LN, n.FN)
 			report = false
 			break
@@ -119,7 +119,7 @@ func (n *Node) Test() {
 }
 
 //TestResponse responds to Test message
-func (n *Node) TestResponse(l, f int, j Edge) {
+func (n *Node) TestResponse(l, f int, j *Edge) {
 	if n.SN == Sleeping {
 		n.Wakeup()
 	}
@@ -129,7 +129,7 @@ func (n *Node) TestResponse(l, f int, j Edge) {
 		j.Accept()
 	} else {
 		if j.SE == Basic {
-			//j.SE = Rejected ****
+			j.SE = Rejected
 		}
 		if n.testEdge != j {
 			j.Reject()
@@ -140,7 +140,7 @@ func (n *Node) TestResponse(l, f int, j Edge) {
 }
 
 //AcceptResponse is a response to Accept message
-func (n *Node) AcceptResponse(j Edge) {
+func (n *Node) AcceptResponse(j *Edge) {
 	n.testEdge = nil
 	if j.Weight < n.bestWt {
 		n.bestEdge = j
@@ -149,7 +149,7 @@ func (n *Node) AcceptResponse(j Edge) {
 	n.Report()
 }
 
-func (n *Node) RejectResponse(j Edge) {
+func (n *Node) RejectResponse(j *Edge) {
 	if j.SE == Basic {
 		//j.SE  = Rejected ******
 	}
@@ -163,7 +163,7 @@ func (n *Node) Report() {
 	}
 }
 
-func (n *Node) ReportResponse(w int, j Edge) {
+func (n *Node) ReportResponse(w int, j *Edge) {
 	if j != n.inBranch {
 		n.findCount--
 		if w < n.bestWt {
@@ -199,7 +199,7 @@ func (n *Node) ChangeCoreResponse() {
 //Find the edge to the adj Node
 func (n *Node) findEdge(an int) *Edge {
 
-	for _, e := range n.adjacencyList {
+	for _, e := range *n.adjacencyList {
 		if e.AdjNodeID == an {
 			return &e
 		}
@@ -210,7 +210,7 @@ func (n *Node) findEdge(an int) *Edge {
 var (
 	HostName string
 	HostIP   string
-	wakeup   int
+	wakeup   bool
 	ThisNode Node
 	requests chan *Message
 )
@@ -220,15 +220,19 @@ func init() {
 	octets := strings.Split(HostIP, ".")
 	fmt.Printf("My ID is: %s\n", octets[3])
 	nodeID, err := strconv.Atoi(octets[3])
-	edges, wakeup := GetEdgesFromFile("ghs.conf", nodeID)
+	edges, wd := GetEdgesFromFile("ghs.conf", nodeID)
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	if wd == nodeID {
+		wakeup = true
 	}
 
 	ThisNode = Node{
 		SN:            Sleeping,
 		ID:            nodeID,
-		adjacencyList: edges}
+		adjacencyList: &edges}
 
 }
 
@@ -265,7 +269,7 @@ func processMessage(reqs chan *Message) {
 		j := ThisNode.findEdge(m.SourceID)
 		switch {
 		case m.Type == "Connect":
-			ThisNode.ConnectResponse(m.L, *j)
+			ThisNode.ConnectResponse(m.L, j)
 
 		case m.Type == "Initiate":
 			ThisNode.InitiateResponse(m.L, m.F, m.S, j)
@@ -321,6 +325,10 @@ func main() {
 
 	//Process incomming messages
 	go processMessage(requests)
+
+	if wakeup {
+		ThisNode.Wakeup()
+	}
 
 	//Wait until listening routine sends signal
 	<-notListening
