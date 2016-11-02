@@ -162,15 +162,38 @@ func (n *Node) RejectResponse(j Edge){
 
 
 func (n *Node) Report(){
-	
+	if n.findCount == 0 && n.testEdge = nil{
+		n.SN = Found
+		n.inBranch.Report(n.bestWt)
+	}
 }
 
 func (n *Node) ReportResponse(w int, j Edge){
+	if j != n.inBranch {
+		n.findCount--
+		if w < n.bestWt {
+			n.bestWt = w
+			n.bestEdge = j
+		}
+		n.Report()
+	} else {
+		if n.SN = Find{
+		// place message end of Q
+	}else if w > n.bestWt{
+		n.ChangeCore()
+	}else if w == Infinity && n.bestWt == Infinity{
+		//HALT ALGORITHM
+	}
 
 }
 
 func (n *Node) ChangeCore(){
-
+	if n.bestEdge.SE == Branch{
+		n.bestEdge.ChangeCore()
+	}else{
+		n.bestEdge.Connect(n.LN)
+		n.bestEdge.SE = Branch
+	}
 }
 
 func (n *Node) ChangeCoreResponse(){
