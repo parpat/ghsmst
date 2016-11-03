@@ -50,7 +50,7 @@ func (n *Node) Wakeup() {
 }
 
 //ConnectResponse responds to the Connect message
-func (n *Node) ConnectResponse(L int, j *Edge) {
+func (n *Node) ConnectResponse(L int, j *Edge, reqQ chan *Message, m Message) {
 	if n.SN == Sleeping {
 		n.Wakeup()
 	}
@@ -62,7 +62,9 @@ func (n *Node) ConnectResponse(L int, j *Edge) {
 			n.findCount++
 		}
 	} else if j.SE == Basic {
-		//place received message in the end of Q****
+		fmt.Printf("LEVEL: %v\n", n.LN)
+		time.Sleep(time.Millisecond * 15)
+		reqQ <- &m //place received message in the end of Q****
 
 	} else {
 		j.Initiate(n.LN+1, j.Weight, Find)
@@ -120,19 +122,19 @@ func (n *Node) Test() {
 }
 
 //TestResponse responds to Test message
-func (n *Node) TestResponse(l, f int, j *Edge) {
+func (n *Node) TestResponse(l, f int, j *Edge, reqQ chan *Message, m Message) {
 	if n.SN == Sleeping {
 		n.Wakeup()
 	}
 	if l > n.LN {
-		//Put message end of Q ***************
+		reqQ <- &m //Put message end of Q ***************
 	} else if f != n.FN {
 		j.Accept()
 	} else {
 		if j.SE == Basic {
 			j.SE = Rejected
 		}
-		if n.testEdge != j {
+		if *n.testEdge != *j {
 			j.Reject()
 		} else {
 			n.Test()
@@ -152,7 +154,7 @@ func (n *Node) AcceptResponse(j *Edge) {
 
 func (n *Node) RejectResponse(j *Edge) {
 	if j.SE == Basic {
-		//j.SE  = Rejected ******
+		j.SE = Rejected
 	}
 	n.Test()
 }
@@ -164,8 +166,8 @@ func (n *Node) Report() {
 	}
 }
 
-func (n *Node) ReportResponse(w int, j *Edge) {
-	if j != n.inBranch {
+func (n *Node) ReportResponse(w int, j *Edge, reqQ chan *Message, m Message) {
+	if *j != *n.inBranch {
 		n.findCount--
 		if w < n.bestWt {
 			n.bestWt = w
@@ -174,16 +176,18 @@ func (n *Node) ReportResponse(w int, j *Edge) {
 		n.Report()
 	} else {
 		if n.SN == Find {
-			// place message end of Q
+			time.Sleep(time.Millisecond * 15)
+			reqQ <- &m // place message end of Q
 		} else if w > n.bestWt {
 			n.ChangeCore()
 		} else if w == Infinity && n.bestWt == Infinity {
-			//HALT ALGORITHM
+			fmt.Println("ALGORITHM HALTED!")
 		}
 
 	}
 }
 
+//ChangeCore procedure
 func (n *Node) ChangeCore() {
 	if n.bestEdge.SE == Branch {
 		n.bestEdge.ChangeCore()
@@ -200,9 +204,9 @@ func (n *Node) ChangeCoreResponse() {
 //Find the edge to the adj Node
 func (n *Node) findEdge(an int) *Edge {
 
-	for _, e := range *n.adjacencyList {
+	for i, e := range *n.adjacencyList {
 		if e.AdjNodeID == an {
-			return &e
+			return &(*n.adjacencyList)[i]
 		}
 	}
 	return nil
@@ -267,12 +271,12 @@ func serveConn(c net.Conn, reqs chan *Message) {
 
 func processMessage(reqs chan *Message) {
 	for m := range reqs {
-		fmt.Printf("MESSAGE TYPE: %v\n", m.Type)
+		fmt.Printf("RECEIVED: %v from %v\n", m.Type, m.SourceID)
 		j := ThisNode.findEdge(m.SourceID)
 		switch {
 		case m.Type == "Connect":
 			fmt.Println("ConnectResponse")
-			ThisNode.ConnectResponse(m.L, j)
+			ThisNode.ConnectResponse(m.L, j, reqs, *m)
 
 		case m.Type == "Initiate":
 			fmt.Println("InitiateResponse")
@@ -280,7 +284,7 @@ func processMessage(reqs chan *Message) {
 
 		case m.Type == "Test":
 			fmt.Println("TestResponse")
-			ThisNode.TestResponse(m.L, m.F, j)
+			ThisNode.TestResponse(m.L, m.F, j, reqs, *m)
 
 		case m.Type == "Reject":
 			fmt.Println("RejectResponse")
@@ -292,7 +296,7 @@ func processMessage(reqs chan *Message) {
 
 		case m.Type == "Report":
 			fmt.Println("ReportResponse")
-			ThisNode.ReportResponse(m.W, j)
+			ThisNode.ReportResponse(m.W, j, reqs, *m)
 
 		case m.Type == "ChangeCore":
 			fmt.Println("ChangeCoreResponse")
@@ -300,10 +304,11 @@ func processMessage(reqs chan *Message) {
 
 		}
 		if ThisNode.inBranch != nil {
-			log.Printf("STATUS: %v  INBRANCH: %v FCOUNT: %v\n", ThisNode.SN, ThisNode.inBranch.Weight, ThisNode.findCount)
+			log.Printf("STATUS: %v  INBRANCH: %v BESTWT: %v, LVL: %v\n", ThisNode.SN, ThisNode.inBranch.Weight, ThisNode.bestWt, ThisNode.LN)
 		} else {
-			log.Printf("STATUS: %v  FCOUNT: %v\n", ThisNode.SN, ThisNode.findCount)
+			log.Printf("STATUS: %v  BESTWT: %v\n", ThisNode.SN, ThisNode.bestWt)
 		}
+		time.Sleep(time.Millisecond * 200)
 
 	}
 }
@@ -312,7 +317,7 @@ func processMessage(reqs chan *Message) {
 //where requests will be queued for processing.
 //Channels are thread-safe so multiple go routines can access
 func main() {
-	requests = make(chan *Message, 10)
+	requests = make(chan *Message, 40)
 
 	//Initialize Server
 	notListening := make(chan bool)
@@ -342,7 +347,7 @@ func main() {
 	go processMessage(requests)
 
 	if wakeup {
-		time.Sleep(time.Second * 4)
+		time.Sleep(time.Second * 9)
 		ThisNode.Wakeup()
 	}
 

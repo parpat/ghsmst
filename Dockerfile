@@ -1,7 +1,6 @@
 #FROM golang:onbuild
 
 
-#Using it the hard way
 FROM golang:latest
 RUN mkdir /app
 ADD . /app/
