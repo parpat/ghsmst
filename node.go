@@ -182,7 +182,7 @@ func (n *Node) ReportResponse(w int, j *Edge, reqQ chan *Message, m Message) {
 		} else if w > n.bestWt {
 			n.ChangeCore()
 		} else if w == Infinity && n.bestWt == Infinity {
-			fmt.Println("ALGORITHM HALTED!")
+			logger.Println("ALGORITHM HALTED!")
 		}
 
 	}
@@ -245,7 +245,7 @@ func init() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	logger = log.New(logfile, "logger: ", log.Lshortfile)
+	logger = log.New(logfile, "logger: ", log.Lshortfile|log.Lmicroseconds)
 	_ = logger
 
 }
