@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -218,6 +219,7 @@ var (
 	wakeup   bool
 	ThisNode Node
 	requests chan *Message
+	logger   *log.Logger
 )
 
 func init() {
@@ -238,6 +240,13 @@ func init() {
 		SN:            Sleeping,
 		ID:            nodeID,
 		adjacencyList: &edges}
+
+	logfile, err := os.Create("/logs/log" + strconv.Itoa(nodeID))
+	if err != nil {
+		log.Fatal(err)
+	}
+	logger = log.New(logfile, "logger: ", log.Lshortfile)
+	_ = logger
 
 }
 
@@ -263,7 +272,7 @@ func serveConn(c net.Conn, reqs chan *Message) {
 	dec := gob.NewDecoder(c)
 	err := dec.Decode(&resp)
 	if err != nil {
-		log.Print(err)
+		logger.Print(err)
 	}
 
 	reqs <- &resp
@@ -275,38 +284,38 @@ func processMessage(reqs chan *Message) {
 		j := ThisNode.findEdge(m.SourceID)
 		switch {
 		case m.Type == "Connect":
-			fmt.Println("ConnectResponse")
+			logger.Println("ConnectResponse")
 			ThisNode.ConnectResponse(m.L, j, reqs, *m)
 
 		case m.Type == "Initiate":
-			fmt.Println("InitiateResponse")
+			logger.Println("InitiateResponse")
 			ThisNode.InitiateResponse(m.L, m.F, m.S, j)
 
 		case m.Type == "Test":
-			fmt.Println("TestResponse")
+			logger.Println("TestResponse")
 			ThisNode.TestResponse(m.L, m.F, j, reqs, *m)
 
 		case m.Type == "Reject":
-			fmt.Println("RejectResponse")
+			logger.Println("RejectResponse")
 			ThisNode.RejectResponse(j)
 
 		case m.Type == "Accept":
-			fmt.Println("AcceptResponse")
+			logger.Println("AcceptResponse")
 			ThisNode.AcceptResponse(j)
 
 		case m.Type == "Report":
-			fmt.Println("ReportResponse")
+			logger.Println("ReportResponse")
 			ThisNode.ReportResponse(m.W, j, reqs, *m)
 
 		case m.Type == "ChangeCore":
-			fmt.Println("ChangeCoreResponse")
+			logger.Println("ChangeCoreResponse")
 			ThisNode.ChangeCoreResponse()
 
 		}
 		if ThisNode.inBranch != nil {
-			log.Printf("STATUS: %v  INBRANCH: %v BESTWT: %v, LVL: %v\n", ThisNode.SN, ThisNode.inBranch.Weight, ThisNode.bestWt, ThisNode.LN)
+			logger.Printf("STATUS: %v  INBRANCH: %v BESTWT: %v, LVL: %v\n", ThisNode.SN, ThisNode.inBranch.Weight, ThisNode.bestWt, ThisNode.LN)
 		} else {
-			log.Printf("STATUS: %v  BESTWT: %v\n", ThisNode.SN, ThisNode.bestWt)
+			logger.Printf("STATUS: %v  BESTWT: %v\n", ThisNode.SN, ThisNode.bestWt)
 		}
 		time.Sleep(time.Millisecond * 200)
 
@@ -328,8 +337,9 @@ func main() {
 		}()
 		l, err := net.Listen("tcp", PORT)
 		fmt.Println("Listening")
+		logger.Println("Listening")
 		if err != nil {
-			log.Fatal(err)
+			logger.Fatal(err)
 		}
 
 		for {
