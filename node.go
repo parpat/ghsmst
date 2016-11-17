@@ -63,8 +63,8 @@ func (n *Node) ConnectResponse(L int, j *Edge, reqQ chan *Message, m Message) {
 			n.findCount++
 		}
 	} else if j.SE == Basic {
-		fmt.Printf("LEVEL: %v\n", n.LN)
-		time.Sleep(time.Millisecond * 15)
+		Logger.Printf("PUT BACK!!! L:%v\n", L)
+		time.Sleep(time.Millisecond * 3)
 		reqQ <- &m //place received message in the end of Q****
 
 	} else {
@@ -102,6 +102,7 @@ func (n *Node) Test() {
 	report := true
 	for _, e := range *n.adjacencyList {
 		if e.SE == Basic {
+			Logger.Printf("basic edge:%v\n", e.Weight)
 			n.testEdge = &e
 			n.testEdge.Test(n.LN, n.FN)
 			report = false
@@ -128,8 +129,11 @@ func (n *Node) TestResponse(l, f int, j *Edge, reqQ chan *Message, m Message) {
 		n.Wakeup()
 	}
 	if l > n.LN {
+		time.Sleep(time.Millisecond * 150)
+		//Logger.Printf("PUT BACK!!! L:%v F:%v", l, f)
 		reqQ <- &m //Put message end of Q ***************
 	} else if f != n.FN {
+		// j.SE = Branch
 		j.Accept()
 	} else {
 		if j.SE == Basic {
@@ -175,16 +179,13 @@ func (n *Node) ReportResponse(w int, j *Edge, reqQ chan *Message, m Message) {
 			n.bestEdge = j
 		}
 		n.Report()
-	} else {
-		if n.SN == Find {
-			time.Sleep(time.Millisecond * 15)
-			reqQ <- &m // place message end of Q
-		} else if w > n.bestWt {
-			n.ChangeCore()
-		} else if w == Infinity && n.bestWt == Infinity {
-			logger.Println("ALGORITHM HALTED!")
-		}
-
+	} else if n.SN == Find {
+		time.Sleep(time.Millisecond * 1)
+		reqQ <- &m // place message end of Q
+	} else if w > n.bestWt {
+		n.ChangeCore()
+	} else if w == Infinity && n.bestWt == Infinity {
+		Logger.Println("ALGORITHM HALTED!")
 	}
 }
 
@@ -219,7 +220,7 @@ var (
 	wakeup   bool
 	ThisNode Node
 	requests chan *Message
-	logger   *log.Logger
+	Logger   *log.Logger
 )
 
 func init() {
@@ -245,8 +246,8 @@ func init() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	logger = log.New(logfile, "logger: ", log.Lshortfile|log.Lmicroseconds)
-	_ = logger
+	Logger = log.New(logfile, "logger: ", log.Lshortfile|log.Lmicroseconds)
+	_ = Logger
 
 }
 
@@ -272,7 +273,7 @@ func serveConn(c net.Conn, reqs chan *Message) {
 	dec := gob.NewDecoder(c)
 	err := dec.Decode(&resp)
 	if err != nil {
-		logger.Print(err)
+		Logger.Print(err)
 	}
 
 	reqs <- &resp
@@ -280,44 +281,44 @@ func serveConn(c net.Conn, reqs chan *Message) {
 
 func processMessage(reqs chan *Message) {
 	for m := range reqs {
-		fmt.Printf("RECEIVED: %v from %v\n", m.Type, m.SourceID)
+		Logger.Printf("RECEIVED<--: %v from %v (L: %v, F: %v, W: %v)\n", m.Type, m.SourceID, m.L, m.F, m.W)
 		j := ThisNode.findEdge(m.SourceID)
 		switch {
 		case m.Type == "Connect":
-			logger.Println("ConnectResponse")
+			//Logger.Println("ConnectResponse")
 			ThisNode.ConnectResponse(m.L, j, reqs, *m)
 
 		case m.Type == "Initiate":
-			logger.Println("InitiateResponse")
+			//Logger.Println("InitiateResponse")
 			ThisNode.InitiateResponse(m.L, m.F, m.S, j)
 
 		case m.Type == "Test":
-			logger.Println("TestResponse")
+			//Logger.Println("TestResponse")
 			ThisNode.TestResponse(m.L, m.F, j, reqs, *m)
 
 		case m.Type == "Reject":
-			logger.Println("RejectResponse")
+			//Logger.Println("RejectResponse")
 			ThisNode.RejectResponse(j)
 
 		case m.Type == "Accept":
-			logger.Println("AcceptResponse")
+			//Logger.Println("AcceptResponse")
 			ThisNode.AcceptResponse(j)
 
 		case m.Type == "Report":
-			logger.Println("ReportResponse")
+			//Logger.Println("ReportResponse")
 			ThisNode.ReportResponse(m.W, j, reqs, *m)
 
 		case m.Type == "ChangeCore":
-			logger.Println("ChangeCoreResponse")
+			//Logger.Println("ChangeCoreResponse")
 			ThisNode.ChangeCoreResponse()
 
 		}
 		if ThisNode.inBranch != nil {
-			logger.Printf("STATUS: %v  INBRANCH: %v BESTWT: %v, LVL: %v\n", ThisNode.SN, ThisNode.inBranch.Weight, ThisNode.bestWt, ThisNode.LN)
+			Logger.Printf("SN: %v  INBRANCH: %v BESTWT: %v, LN: %v FN: %v\n", ThisNode.SN, ThisNode.inBranch.Weight, ThisNode.bestWt, ThisNode.LN, ThisNode.FN)
 		} else {
-			logger.Printf("STATUS: %v  BESTWT: %v\n", ThisNode.SN, ThisNode.bestWt)
+			Logger.Printf("SN: %v  BESTWT: %v\n", ThisNode.SN, ThisNode.bestWt)
 		}
-		time.Sleep(time.Millisecond * 200)
+		time.Sleep(time.Millisecond * 800)
 
 	}
 }
@@ -326,7 +327,7 @@ func processMessage(reqs chan *Message) {
 //where requests will be queued for processing.
 //Channels are thread-safe so multiple go routines can access
 func main() {
-	requests = make(chan *Message, 40)
+	requests = make(chan *Message, 50)
 
 	//Initialize Server
 	notListening := make(chan bool)
@@ -337,9 +338,9 @@ func main() {
 		}()
 		l, err := net.Listen("tcp", PORT)
 		fmt.Println("Listening")
-		logger.Println("Listening")
+		Logger.Println("Listening")
 		if err != nil {
-			logger.Fatal(err)
+			Logger.Fatal(err)
 		}
 
 		for {
@@ -357,7 +358,7 @@ func main() {
 	go processMessage(requests)
 
 	if wakeup {
-		time.Sleep(time.Second * 9)
+		time.Sleep(time.Second * 11)
 		ThisNode.Wakeup()
 	}
 

@@ -51,12 +51,15 @@ const PORT string = ":7575"
 func (e *Edge) Connect(l int) {
 	m := Message{Type: "Connect", L: l, SourceID: ThisNode.ID}
 	e.send(m)
+	Logger.Printf("SENT-->: %v(L: %v) to %v\n", m.Type, m.L, e.AdjNodeID)
+
 }
 
 //Initiate type message created and sent
 func (e *Edge) Initiate(l, f int, s string) {
 	m := Message{Type: "Initiate", L: l, F: f, S: s, SourceID: ThisNode.ID}
 	e.send(m)
+	Logger.Printf("SENT-->: %v(L: %v, F: %v, S: %v) to %v\n", m.Type, m.L, m.F, m.S, e.AdjNodeID)
 
 }
 
@@ -64,30 +67,40 @@ func (e *Edge) Initiate(l, f int, s string) {
 func (e *Edge) Test(l, f int) {
 	m := Message{Type: "Test", L: l, F: f, SourceID: ThisNode.ID}
 	e.send(m)
+	Logger.Printf("SENT-->: %v(L: %v, F: %v) to %v\n", m.Type, m.L, m.F, e.AdjNodeID)
+
 }
 
 //Reject type message created and sent
 func (e *Edge) Reject() {
 	m := Message{Type: "Reject", SourceID: ThisNode.ID}
 	e.send(m)
+	Logger.Printf("SENT-->: %v() to %v\n", m.Type, e.AdjNodeID)
+
 }
 
 //Accept type message created and sent
 func (e *Edge) Accept() {
 	m := Message{Type: "Accept", SourceID: ThisNode.ID}
 	e.send(m)
+	Logger.Printf("SENT-->: %v() to %v\n", m.Type, e.AdjNodeID)
+
 }
 
 //Report type message created and sent
 func (e *Edge) Report(we int) {
 	m := Message{Type: "Report", W: we, SourceID: ThisNode.ID}
 	e.send(m)
+	Logger.Printf("SENT-->: %v(W: %v) to %v\n", m.Type, m.W, e.AdjNodeID)
+
 }
 
 //ChangeCore type message created and sent
 func (e *Edge) ChangeCore() {
 	m := Message{Type: "ChangeCore", SourceID: ThisNode.ID}
 	e.send(m)
+	Logger.Printf("SENT-->: %v() to %v\n", m.Type, e.AdjNodeID)
+
 }
 
 var enc *gob.Encoder
@@ -103,7 +116,5 @@ func (e *Edge) send(m Message) {
 		if err != nil {
 			log.Fatal(err)
 		}
-		log.Printf("Sent: %v to %v\n", m.Type, e.AdjNodeID)
-
 	}
 }
